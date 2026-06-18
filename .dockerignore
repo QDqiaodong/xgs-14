@@ -1,0 +1,14 @@
+# Keep the Docker build context small and cache-friendly.
+*
+
+!Dockerfile
+!package.json
+!package-lock.json
+
+!web
+!web/**
+
+!backend
+!backend/pom.xml
+!backend/src
+!backend/src/**

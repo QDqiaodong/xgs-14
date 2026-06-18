@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>传智餐厅助手 - 顾客点餐</title>
+    <link rel="stylesheet" href="/assets/css/styles.css" />
+  </head>
+  <body>
+    <main class="menu-page">
+      <div class="header-bar">
+        <h1>顾客点餐</h1>
+        <div class="inline-actions">
+          <a href="/customer/orders.html" data-testid="customer-menu-to-orders">我的订单</a>
+          <a href="/account.html" data-testid="customer-menu-to-account">账户信息</a>
+        </div>
+      </div>
+
+      <div class="menu-layout">
+        <section class="panel dishes-panel">
+          <h2>可售菜品</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>名称</th>
+                <th>价格</th>
+                <th>描述</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="dishesBody" data-testid="customer-dishes-body"></tbody>
+          </table>
+        </section>
+
+        <aside class="cart-sidebar" data-testid="customer-cart-sidebar">
+          <div class="cart-sidebar-header">
+            <h3>已选菜品</h3>
+            <span class="cart-count-badge" id="cartCountBadge" data-testid="cart-count-badge">0</span>
+          </div>
+          <div class="cart-sidebar-content">
+            <div id="cartItemsContainer" data-testid="cart-items-container"></div>
+          </div>
+          <div class="cart-sidebar-footer">
+            <div class="cart-total-row">
+              <span>总计</span>
+              <strong id="sidebarTotal" data-testid="sidebar-total">¥0.00</strong>
+            </div>
+            <button id="submitOrderBtn" type="button" class="submit-order-btn" data-testid="customer-submit-order">提交订单</button>
+          </div>
+        </aside>
+      </div>
+
+      <div class="mobile-cart-bar" data-testid="mobile-cart-bar">
+        <div class="mobile-cart-info" id="mobileCartToggle" data-testid="mobile-cart-toggle">
+          <span class="mobile-cart-icon">🛒</span>
+          <span class="mobile-cart-count" id="mobileCartCount" data-testid="mobile-cart-count">0</span>
+          <span class="mobile-cart-total" id="mobileCartTotal" data-testid="mobile-cart-total">¥0.00</span>
+          <span class="mobile-cart-arrow" id="mobileCartArrow">▼</span>
+        </div>
+        <button id="mobileSubmitBtn" type="button" class="mobile-submit-btn" data-testid="mobile-submit-order">去结算</button>
+      </div>
+
+      <div class="mobile-cart-detail" id="mobileCartDetail" data-testid="mobile-cart-detail">
+        <div class="mobile-cart-detail-header">
+          <h3>已选菜品</h3>
+          <button class="mobile-cart-close" id="mobileCartClose" data-testid="mobile-cart-close">×</button>
+        </div>
+        <div class="mobile-cart-detail-content" id="mobileCartDetailContent" data-testid="mobile-cart-detail-content"></div>
+      </div>
+
+      <div class="mobile-cart-overlay" id="mobileCartOverlay" data-testid="mobile-cart-overlay"></div>
+
+      <p id="message" class="error" data-testid="customer-menu-message"></p>
+    </main>
+    <script type="module" src="/assets/js/customer-menu.js"></script>
+  </body>
+</html>
