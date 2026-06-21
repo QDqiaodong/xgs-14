@@ -1501,3 +1501,117 @@ button.disabled-with-hint:hover:not(:disabled) {
 		transition-duration: 0.01ms !important;
 	}
 }
+
+.order-timeline {
+	margin-top: var(--space-4);
+	padding-top: var(--space-4);
+	border-top: 1px solid var(--border);
+}
+
+.order-timeline h4 {
+	margin: 0 0 var(--space-3);
+	font-size: 16px;
+	font-weight: 700;
+	color: var(--text);
+}
+
+.timeline {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	position: relative;
+}
+
+.timeline-item {
+	position: relative;
+	padding-left: 40px;
+	padding-bottom: var(--space-4);
+}
+
+.timeline-item.timeline-last {
+	padding-bottom: 0;
+}
+
+.timeline-dot {
+	position: absolute;
+	left: 0;
+	top: 4px;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--border);
+	border: 3px solid var(--surface);
+	box-shadow: 0 0 0 2px var(--border);
+	z-index: 1;
+	transition: all 0.3s ease;
+}
+
+.timeline-item.timeline-done .timeline-dot {
+	background: var(--primary);
+	box-shadow: 0 0 0 2px var(--primary);
+}
+
+.timeline-item.timeline-cancelled .timeline-dot {
+	background: var(--danger);
+	box-shadow: 0 0 0 2px var(--danger);
+}
+
+.timeline-line {
+	position: absolute;
+	left: 7px;
+	top: 22px;
+	bottom: 0;
+	width: 2px;
+	background: var(--border);
+}
+
+.timeline-item.timeline-done .timeline-line {
+	background: var(--primary-light);
+}
+
+.timeline-item.timeline-cancelled .timeline-line {
+	background: var(--danger-border);
+}
+
+.timeline-content {
+	position: relative;
+}
+
+.timeline-header {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	flex-wrap: wrap;
+	margin-bottom: 4px;
+}
+
+.timeline-label {
+	font-weight: 700;
+	font-size: 15px;
+	color: var(--muted);
+}
+
+.timeline-item.timeline-done .timeline-label {
+	color: var(--text);
+}
+
+.timeline-item.timeline-cancelled .timeline-label {
+	color: var(--danger-hover);
+}
+
+.timeline-time {
+	font-size: 13px;
+	color: var(--muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.timeline-description {
+	font-size: 14px;
+	color: var(--muted);
+	margin: 0;
+}
+
+.timeline-item.timeline-done .timeline-description {
+	color: var(--text-soft);
+}
+

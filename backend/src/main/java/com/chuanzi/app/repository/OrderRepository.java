@@ -12,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -103,9 +104,11 @@ public class OrderRepository {
                 }
 
                 boolean updated;
-                try (PreparedStatement ps = conn.prepareStatement("UPDATE orders SET status = 'CANCELLED', updated_at = ? WHERE id = ? AND status = 'NEW'")) {
-                    ps.setObject(1, LocalDateTime.now());
-                    ps.setLong(2, orderId);
+                LocalDateTime now = LocalDateTime.now();
+                try (PreparedStatement ps = conn.prepareStatement("UPDATE orders SET status = 'CANCELLED', updated_at = ?, cancelled_at = ? WHERE id = ? AND status = 'NEW'")) {
+                    ps.setObject(1, now);
+                    ps.setObject(2, now);
+                    ps.setLong(3, orderId);
                     updated = ps.executeUpdate() > 0;
                 }
                 if (!updated) {
@@ -132,7 +135,7 @@ public class OrderRepository {
     }
 
     public List<OrderView> listOrdersForCustomer(long userId) {
-        String sql = "SELECT id, user_id, total_cents, status, created_at, updated_at FROM orders WHERE user_id = ? ORDER BY id DESC";
+        String sql = "SELECT id, user_id, total_cents, status, created_at, updated_at, confirmed_at, done_at, cancelled_at FROM orders WHERE user_id = ? ORDER BY id DESC";
         try (Connection conn = database.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, userId);
@@ -151,6 +154,9 @@ public class OrderRepository {
                         rs.getString("status"),
                         rs.getTimestamp("created_at").toLocalDateTime().toString(),
                         rs.getTimestamp("updated_at").toLocalDateTime().toString(),
+                        timestampToString(rs.getTimestamp("confirmed_at")),
+                        timestampToString(rs.getTimestamp("done_at")),
+                        timestampToString(rs.getTimestamp("cancelled_at")),
                         List.of()
                     ));
                 }
@@ -163,7 +169,7 @@ public class OrderRepository {
 
     public List<OrderView> listOrdersForMerchant(String status) {
         StringBuilder sql = new StringBuilder(
-            "SELECT o.id, o.user_id, o.total_cents, o.status, o.created_at, o.updated_at, u.username, u.display_name "
+            "SELECT o.id, o.user_id, o.total_cents, o.status, o.created_at, o.updated_at, o.confirmed_at, o.done_at, o.cancelled_at, u.username, u.display_name "
                 + "FROM orders o JOIN users u ON u.id = o.user_id"
         );
         boolean filterByStatus = status != null && !status.isBlank();
@@ -192,6 +198,9 @@ public class OrderRepository {
                         rs.getString("status"),
                         rs.getTimestamp("created_at").toLocalDateTime().toString(),
                         rs.getTimestamp("updated_at").toLocalDateTime().toString(),
+                        timestampToString(rs.getTimestamp("confirmed_at")),
+                        timestampToString(rs.getTimestamp("done_at")),
+                        timestampToString(rs.getTimestamp("cancelled_at")),
                         List.of()
                     ));
                 }
@@ -238,12 +247,26 @@ public class OrderRepository {
     }
 
     public boolean updateOrderStatus(long orderId, String status) {
-        String sql = "UPDATE orders SET status = ?, updated_at = ? WHERE id = ?";
+        LocalDateTime now = LocalDateTime.now();
+        StringBuilder sql = new StringBuilder("UPDATE orders SET status = ?, updated_at = ?");
+        if ("CONFIRMED".equals(status)) {
+            sql.append(", confirmed_at = ?");
+        } else if ("DONE".equals(status)) {
+            sql.append(", done_at = ?");
+        } else if ("CANCELLED".equals(status)) {
+            sql.append(", cancelled_at = ?");
+        }
+        sql.append(" WHERE id = ?");
+
         try (Connection conn = database.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             ps.setString(1, status);
-            ps.setObject(2, LocalDateTime.now());
-            ps.setLong(3, orderId);
+            ps.setObject(2, now);
+            int idx = 3;
+            if ("CONFIRMED".equals(status) || "DONE".equals(status) || "CANCELLED".equals(status)) {
+                ps.setObject(idx++, now);
+            }
+            ps.setLong(idx, orderId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new RuntimeException("更新订单状态失败", e);
@@ -278,6 +301,9 @@ public class OrderRepository {
         dto.put("status", order.status());
         dto.put("createdAt", order.createdAt());
         dto.put("updatedAt", order.updatedAt());
+        dto.put("confirmedAt", order.confirmedAt());
+        dto.put("doneAt", order.doneAt());
+        dto.put("cancelledAt", order.cancelledAt());
 
         List<Map<String, Object>> itemDtos = new ArrayList<>();
         for (OrderItemView item : order.items()) {
@@ -292,6 +318,13 @@ public class OrderRepository {
         }
         dto.put("items", itemDtos);
         return dto;
+    }
+
+    private String timestampToString(Timestamp ts) {
+        if (ts == null) {
+            return null;
+        }
+        return ts.toLocalDateTime().toString();
     }
 
     private List<OrderItemView> findItems(Connection conn, long orderId) throws SQLException {
@@ -360,6 +393,9 @@ public class OrderRepository {
                 order.status(),
                 order.createdAt(),
                 order.updatedAt(),
+                order.confirmedAt(),
+                order.doneAt(),
+                order.cancelledAt(),
                 itemsMap.getOrDefault(order.id(), List.of())
             ));
         }

@@ -11,6 +11,9 @@ public final class OrderView {
     private final String status;
     private final String createdAt;
     private final String updatedAt;
+    private final String confirmedAt;
+    private final String doneAt;
+    private final String cancelledAt;
     private final List<OrderItemView> items;
 
     public OrderView(
@@ -22,6 +25,9 @@ public final class OrderView {
         String status,
         String createdAt,
         String updatedAt,
+        String confirmedAt,
+        String doneAt,
+        String cancelledAt,
         List<OrderItemView> items
     ) {
         this.id = id;
@@ -32,6 +38,9 @@ public final class OrderView {
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.confirmedAt = confirmedAt;
+        this.doneAt = doneAt;
+        this.cancelledAt = cancelledAt;
         this.items = items;
     }
 
@@ -65,6 +74,18 @@ public final class OrderView {
 
     public String updatedAt() {
         return updatedAt;
+    }
+
+    public String confirmedAt() {
+        return confirmedAt;
+    }
+
+    public String doneAt() {
+        return doneAt;
+    }
+
+    public String cancelledAt() {
+        return cancelledAt;
     }
 
     public List<OrderItemView> items() {

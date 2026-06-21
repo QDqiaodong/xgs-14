@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>传智餐厅助手 - 订单进度</title>
+    <link rel="stylesheet" href="/assets/css/styles.css" />
+  </head>
+  <body>
+    <main>
+      <div class="header-bar">
+        <h1>订单进度</h1>
+        <div class="inline-actions">
+          <a href="/customer/orders.html" data-testid="order-progress-to-orders">我的订单</a>
+          <a href="/customer/menu.html" data-testid="order-progress-to-menu">返回点餐</a>
+          <a href="/account.html" data-testid="order-progress-to-account">账户信息</a>
+          <button id="refreshBtn" type="button" data-testid="order-progress-refresh">刷新</button>
+        </div>
+      </div>
+      <p id="message" class="error" data-testid="order-progress-message"></p>
+      <div id="orders" data-testid="order-progress-list"></div>
+    </main>
+    <script type="module" src="/assets/js/customer-order-progress.js"></script>
+  </body>
+</html>
