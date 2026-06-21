@@ -13,6 +13,7 @@ import {
 } from "/assets/js/cart.js";
 
 const dishesBody = document.getElementById("dishesBody");
+const categoryList = document.getElementById("categoryList");
 const cartItemsContainer = document.getElementById("cartItemsContainer");
 const cartCountBadge = document.getElementById("cartCountBadge");
 const sidebarTotal = document.getElementById("sidebarTotal");
@@ -28,37 +29,92 @@ const mobileCartDetailContent = document.getElementById("mobileCartDetailContent
 const mobileCartClose = document.getElementById("mobileCartClose");
 const mobileCartOverlay = document.getElementById("mobileCartOverlay");
 
+let menuGroups = [];
 let dishes = [];
 let cart = loadCart();
 
-function renderDishes() {
-  dishesBody.innerHTML = dishes
-    .map(
-      (dish) => {
-        const canAdd = canAddToCart(cart, dish);
-        const maxQty = dish.maxQuantityPerOrder || 10;
-        const currentItem = cart.find((item) => item.dishId === dish.id);
-        const currentQty = currentItem ? currentItem.quantity : 0;
-        const reason = !canAdd ? `已达每单上限 ${maxQty} 份` : "";
-        return `
-      <tr data-testid="dish-row-${dish.id}">
-        <td>${dish.name}</td>
-        <td>${formatPrice(dish.priceCents)}</td>
-        <td>${dish.description || "-"}</td>
-        <td>
-          <button 
-            data-action="add" 
-            data-id="${dish.id}" 
-            data-testid="dish-add-${dish.id}"
-            ${!canAdd ? "disabled title=\"" + reason + "\"" : ""}
-            class="${!canAdd ? "disabled-with-hint" : ""}"
-          >${canAdd ? "加入购物车" : "已达上限"}</button>
-          ${!canAdd ? `<div class="dish-limit-hint" data-testid="dish-limit-hint-${dish.id}">${reason}（已选 ${currentQty} 份）</div>` : ""}
-        </td>
-      </tr>
-    `;
+function flattenDishes(groups) {
+  const list = [];
+  for (const group of groups) {
+    if (group.dishes && group.dishes.length) {
+      for (const dish of group.dishes) {
+        list.push(dish);
       }
-    )
+    }
+  }
+  return list;
+}
+
+function buildCategoryId(categoryId) {
+  return categoryId == null ? "category-uncategorized" : `category-${categoryId}`;
+}
+
+function renderCategories() {
+  if (!categoryList) return;
+  categoryList.innerHTML = menuGroups
+    .map((group) => {
+      const count = group.dishes ? group.dishes.length : 0;
+      return `
+      <li data-testid="category-item-${buildCategoryId(group.categoryId)}">
+        <a href="#${buildCategoryId(group.categoryId)}" data-category-id="${group.categoryId ?? ""}">
+          <span class="category-name">${group.categoryName}</span>
+          <span class="category-count">${count}</span>
+        </a>
+      </li>
+    `;
+    })
+    .join("");
+}
+
+function renderDishes() {
+  dishesBody.innerHTML = menuGroups
+    .filter((group) => !group.dishes || group.dishes.length > 0)
+    .map((group) => {
+      const dishesHtml = (group.dishes || [])
+        .map((dish) => {
+          const canAdd = canAddToCart(cart, dish);
+          const maxQty = dish.maxQuantityPerOrder || 10;
+          const currentItem = cart.find((item) => item.dishId === dish.id);
+          const currentQty = currentItem ? currentItem.quantity : 0;
+          const reason = !canAdd ? `已达每单上限 ${maxQty} 份` : "";
+          return `
+        <tr data-testid="dish-row-${dish.id}">
+          <td>${dish.name}</td>
+          <td>${formatPrice(dish.priceCents)}</td>
+          <td>${dish.description || "-"}</td>
+          <td>
+            <button 
+              data-action="add" 
+              data-id="${dish.id}" 
+              data-testid="dish-add-${dish.id}"
+              ${!canAdd ? "disabled title=\"" + reason + "\"" : ""}
+              class="${!canAdd ? "disabled-with-hint" : ""}"
+            >${canAdd ? "加入购物车" : "已达上限"}</button>
+            ${!canAdd ? `<div class="dish-limit-hint" data-testid="dish-limit-hint-${dish.id}">${reason}（已选 ${currentQty} 份）</div>` : ""}
+          </td>
+        </tr>
+      `;
+        })
+        .join("");
+
+      const categoryAnchorId = buildCategoryId(group.categoryId);
+      return `
+    <section class="dish-category-section" id="${categoryAnchorId}" data-testid="dish-category-section-${categoryAnchorId}">
+      <h3 class="dish-category-title" data-testid="dish-category-title-${categoryAnchorId}">${group.categoryName}</h3>
+      <table class="dish-category-table">
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>价格</th>
+            <th>描述</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>${dishesHtml}</tbody>
+      </table>
+    </section>
+  `;
+    })
     .join("");
 }
 
@@ -188,7 +244,9 @@ function toggleMobileCart() {
 
 async function loadDishes() {
   await requireAuth(["CUSTOMER"]);
-  dishes = await apiRequest("/api/dishes");
+  menuGroups = await apiRequest("/api/customer/menu");
+  dishes = flattenDishes(menuGroups);
+  renderCategories();
   renderDishes();
   renderCart();
 }

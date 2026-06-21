@@ -31,7 +31,7 @@ public class OrderRepository {
     }
 
     public long createOrderWithItems(long userId, List<OrderCreateItem> items, int totalCents, LocalDate saleDate) {
-        String orderSql = "INSERT INTO orders(user_id, total_cents, status, created_at, updated_at) VALUES (?, ?, 'NEW', ?, ?)";
+        String orderSql = "INSERT INTO orders(user_id, total_cents, sale_date, status, created_at, updated_at) VALUES (?, ?, ?, 'NEW', ?, ?)";
         String itemSql = "INSERT INTO order_items(order_id, dish_id, dish_name_snapshot, price_cents_snapshot, quantity) VALUES (?, ?, ?, ?, ?)";
         LocalDateTime now = LocalDateTime.now();
 
@@ -42,8 +42,9 @@ public class OrderRepository {
                 try (PreparedStatement orderPs = conn.prepareStatement(orderSql, Statement.RETURN_GENERATED_KEYS)) {
                     orderPs.setLong(1, userId);
                     orderPs.setInt(2, totalCents);
-                    orderPs.setObject(3, now);
+                    orderPs.setObject(3, saleDate);
                     orderPs.setObject(4, now);
+                    orderPs.setObject(5, now);
                     orderPs.executeUpdate();
                     try (ResultSet rs = orderPs.getGeneratedKeys()) {
                         if (!rs.next()) {
@@ -90,14 +91,14 @@ public class OrderRepository {
             conn.setAutoCommit(false);
             try {
                 LocalDate orderDate;
-                try (PreparedStatement ps = conn.prepareStatement("SELECT created_at FROM orders WHERE id = ?")) {
+                try (PreparedStatement ps = conn.prepareStatement("SELECT sale_date FROM orders WHERE id = ?")) {
                     ps.setLong(1, orderId);
                     try (ResultSet rs = ps.executeQuery()) {
                         if (!rs.next()) {
                             conn.rollback();
                             return false;
                         }
-                        orderDate = rs.getTimestamp("created_at").toLocalDateTime().toLocalDate();
+                        orderDate = rs.getDate("sale_date").toLocalDate();
                     }
                 }
 

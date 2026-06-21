@@ -47,11 +47,13 @@ CREATE TABLE IF NOT EXISTS orders (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_id BIGINT NOT NULL,
   total_cents INT NOT NULL,
+  sale_date DATE NOT NULL,
   status VARCHAR(16) NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   KEY idx_orders_user_id (user_id),
   KEY idx_orders_status (status),
+  KEY idx_orders_sale_date (sale_date),
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT ck_orders_status CHECK (status IN ('NEW', 'CONFIRMED', 'CANCELLED', 'DONE')),
   CONSTRAINT ck_orders_total CHECK (total_cents >= 0)

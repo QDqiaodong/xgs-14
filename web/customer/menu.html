@@ -17,19 +17,14 @@
       </div>
 
       <div class="menu-layout">
+        <nav class="category-sidebar" data-testid="category-sidebar">
+          <h3>菜品分类</h3>
+          <ul id="categoryList" class="category-list" data-testid="category-list"></ul>
+        </nav>
+
         <section class="panel dishes-panel">
           <h2>可售菜品</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>价格</th>
-                <th>描述</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="dishesBody" data-testid="customer-dishes-body"></tbody>
-          </table>
+          <div id="dishesBody" data-testid="customer-dishes-body"></div>
         </section>
 
         <aside class="cart-sidebar" data-testid="customer-cart-sidebar">
