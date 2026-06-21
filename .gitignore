@@ -39,11 +39,16 @@ lerna-debug.log*
 !.env.example
 !.env.sample
 !.env.template
+backend/settings.xml
 **/application-local.yml
 **/application-*.local.yml
 **/.env.local
 **/.env.*.local
 *.local
+
+# ====================== 4.1、本地构建/启动脚本覆盖文件 ======================
+Dockerfile
+scripts/
 
 # ====================== 5、前端(Vite/Vue/React)依赖&打包产物 ======================
 node_modules/
@@ -51,6 +56,8 @@ dist/
 dist-ssr/
 build/
 coverage/
+test-results/
+playwright-report/
 .vite/
 .turbo/
 .next/
