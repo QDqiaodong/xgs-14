@@ -3,18 +3,23 @@ package com.chuanzi.app.service;
 import com.chuanzi.app.infra.ApiException;
 import com.chuanzi.app.model.AuthUser;
 import com.chuanzi.app.model.Dish;
+import com.chuanzi.app.model.DishCategory;
+import com.chuanzi.app.repository.DishCategoryRepository;
 import com.chuanzi.app.repository.DishRepository;
 import com.chuanzi.app.util.ValidationUtil;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class DishService {
     private final DishRepository dishRepository;
+    private final DishCategoryRepository categoryRepository;
 
-    public DishService(DishRepository dishRepository) {
+    public DishService(DishRepository dishRepository, DishCategoryRepository categoryRepository) {
         this.dishRepository = dishRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     public List<Map<String, Object>> listDishes(AuthUser authUser, String scope, String keyword, String isAvailable) {
@@ -28,22 +33,24 @@ public class DishService {
         return result;
     }
 
-    public long createDish(String name, Integer priceCents, String description, Boolean isAvailable, Integer maxQuantityPerOrder) {
+    public long createDish(String name, Integer priceCents, String description, Boolean isAvailable, Integer maxQuantityPerOrder, Long categoryId) {
         String normalizedName = requireDishName(name);
         int normalizedPrice = ValidationUtil.requirePriceCents(priceCents);
         String normalizedDesc = normalizeDescription(description);
         boolean available = isAvailable != null && isAvailable;
         int normalizedMaxQty = requireMaxQuantityPerOrder(maxQuantityPerOrder);
-        return dishRepository.createDish(normalizedName, normalizedPrice, normalizedDesc, available, normalizedMaxQty);
+        Long normalizedCategoryId = normalizeCategoryId(categoryId);
+        return dishRepository.createDish(normalizedName, normalizedPrice, normalizedDesc, available, normalizedMaxQty, normalizedCategoryId);
     }
 
-    public void updateDish(long dishId, String name, Integer priceCents, String description, Boolean isAvailable, Integer maxQuantityPerOrder) {
+    public void updateDish(long dishId, String name, Integer priceCents, String description, Boolean isAvailable, Integer maxQuantityPerOrder, Long categoryId) {
         String normalizedName = requireDishName(name);
         int normalizedPrice = ValidationUtil.requirePriceCents(priceCents);
         String normalizedDesc = normalizeDescription(description);
         boolean available = isAvailable != null && isAvailable;
         int normalizedMaxQty = requireMaxQuantityPerOrder(maxQuantityPerOrder);
-        boolean updated = dishRepository.updateDish(dishId, normalizedName, normalizedPrice, normalizedDesc, available, normalizedMaxQty);
+        Long normalizedCategoryId = normalizeCategoryId(categoryId);
+        boolean updated = dishRepository.updateDish(dishId, normalizedName, normalizedPrice, normalizedDesc, available, normalizedMaxQty, normalizedCategoryId);
         if (!updated) {
             throw ApiException.notFound("菜品不存在");
         }
@@ -57,6 +64,55 @@ public class DishService {
         if (!deleted) {
             throw ApiException.notFound("菜品不存在");
         }
+    }
+
+    public List<Map<String, Object>> listCustomerMenu() {
+        List<DishCategory> categories = categoryRepository.listCategories(true);
+        List<Dish> dishes = dishRepository.listDishes(false, "", null);
+
+        Map<Long, List<Dish>> byCategory = new LinkedHashMap<>();
+        List<Dish> uncategorized = new ArrayList<>();
+        for (Dish dish : dishes) {
+            if (dish.categoryId() == null) {
+                uncategorized.add(dish);
+            } else {
+                byCategory.computeIfAbsent(dish.categoryId(), ignored -> new ArrayList<>()).add(dish);
+            }
+        }
+
+        List<Map<String, Object>> groups = new ArrayList<>();
+        for (DishCategory category : categories) {
+            List<Dish> items = byCategory.getOrDefault(category.id(), List.of());
+            groups.add(buildGroup(category.id(), category.code(), category.name(), category.sortOrder(), items));
+        }
+        if (!uncategorized.isEmpty()) {
+            groups.add(buildGroup(null, "", "未分类", Integer.MAX_VALUE, uncategorized));
+        }
+        return groups;
+    }
+
+    private Map<String, Object> buildGroup(Long categoryId, String code, String name, int sortOrder, List<Dish> dishes) {
+        Map<String, Object> group = new LinkedHashMap<>();
+        group.put("categoryId", categoryId);
+        group.put("categoryCode", code);
+        group.put("categoryName", name);
+        group.put("sortOrder", sortOrder);
+        List<Map<String, Object>> dishDtos = new ArrayList<>();
+        for (Dish dish : dishes) {
+            dishDtos.add(dishRepository.toDishDto(dish));
+        }
+        group.put("dishes", dishDtos);
+        return group;
+    }
+
+    private Long normalizeCategoryId(Long categoryId) {
+        if (categoryId == null || categoryId <= 0) {
+            return null;
+        }
+        if (categoryRepository.findById(categoryId).isEmpty()) {
+            throw ApiException.badRequest("菜品分类不存在");
+        }
+        return categoryId;
     }
 
     private String requireDishName(String name) {

@@ -5,12 +5,16 @@ import com.chuanzi.app.db.Database;
 import com.chuanzi.app.handler.ApiHandler;
 import com.chuanzi.app.handler.RootHandler;
 import com.chuanzi.app.handler.StaticFileHandler;
+import com.chuanzi.app.repository.DishCategoryRepository;
+import com.chuanzi.app.repository.DishDailyQuotaRepository;
 import com.chuanzi.app.repository.DishRepository;
 import com.chuanzi.app.repository.OrderRepository;
 import com.chuanzi.app.repository.SessionRepository;
 import com.chuanzi.app.repository.UserRepository;
 import com.chuanzi.app.service.AccountService;
 import com.chuanzi.app.service.AuthService;
+import com.chuanzi.app.service.DishCategoryService;
+import com.chuanzi.app.service.DishDailyQuotaService;
 import com.chuanzi.app.service.DishService;
 import com.chuanzi.app.service.OrderService;
 import com.sun.net.httpserver.HttpServer;
@@ -26,15 +30,21 @@ public class RestaurantAssistantApplication {
 
         UserRepository userRepository = new UserRepository(database);
         SessionRepository sessionRepository = new SessionRepository(database);
+        DishCategoryRepository categoryRepository = new DishCategoryRepository(database);
         DishRepository dishRepository = new DishRepository(database);
-        OrderRepository orderRepository = new OrderRepository(database);
+        DishDailyQuotaRepository quotaRepository = new DishDailyQuotaRepository(database);
+        OrderRepository orderRepository = new OrderRepository(database, quotaRepository);
 
         AuthService authService = new AuthService(userRepository, sessionRepository, config);
         AccountService accountService = new AccountService(userRepository, config);
-        DishService dishService = new DishService(dishRepository);
+        DishService dishService = new DishService(dishRepository, categoryRepository);
+        DishCategoryService categoryService = new DishCategoryService(categoryRepository);
+        DishDailyQuotaService quotaService = new DishDailyQuotaService(quotaRepository, dishRepository);
         OrderService orderService = new OrderService(dishRepository, orderRepository);
 
-        ApiHandler apiHandler = new ApiHandler(authService, accountService, dishService, orderService, config);
+        ApiHandler apiHandler = new ApiHandler(
+            authService, accountService, dishService, orderService, categoryService, quotaService, config
+        );
         StaticFileHandler staticFileHandler = new StaticFileHandler(Path.of(config.webRoot()));
 
         HttpServer server = HttpServer.create(new InetSocketAddress(config.appPort()), 0);

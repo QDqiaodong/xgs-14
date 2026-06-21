@@ -2,7 +2,7 @@ FROM node:20-alpine AS frontend-build
 WORKDIR /frontend
 
 COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN npm ci
 
 COPY web web
 RUN npm run build:web
@@ -10,14 +10,18 @@ RUN npm run build:web
 FROM maven:3.9-eclipse-temurin-17 AS backend-deps
 WORKDIR /build/backend
 
+COPY backend/settings.xml /tmp/maven-settings.xml
 COPY backend/pom.xml ./
-RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
 
 FROM backend-deps AS backend-build
 WORKDIR /build/backend
 
 COPY backend/src src
-RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests package
+RUN mvn -B -ntp -s /tmp/maven-settings.xml \
+    -Dmaven.test.skip=true \
+    -Dmaven.wagon.httpconnectionManager.ttlSeconds=25 \
+    -Dmaven.wagon.rto=30000 \
+    package
 
 FROM docker.1ms.run/library/eclipse-temurin:17-jre
 WORKDIR /app

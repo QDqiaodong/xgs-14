@@ -65,6 +65,7 @@ coverage/
 # ====================== 6、Maven Java后端编译产物 ======================
 target/
 out/
+.m2/
 *.class
 *.jar
 *.war
@@ -89,4 +90,3 @@ data/minio/
 # ====================== 10、本地打包发布产物 ======================
 **/release/*.tar.gz
 frontend/package-lock.json
-

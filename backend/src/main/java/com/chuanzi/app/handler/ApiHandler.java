@@ -8,6 +8,8 @@ import com.chuanzi.app.infra.JsonUtil;
 import com.chuanzi.app.model.AuthUser;
 import com.chuanzi.app.service.AccountService;
 import com.chuanzi.app.service.AuthService;
+import com.chuanzi.app.service.DishCategoryService;
+import com.chuanzi.app.service.DishDailyQuotaService;
 import com.chuanzi.app.service.DishService;
 import com.chuanzi.app.service.OrderService;
 import com.sun.net.httpserver.HttpExchange;
@@ -24,11 +26,15 @@ import java.util.stream.Collectors;
 public class ApiHandler implements HttpHandler {
     private static final Pattern DISH_ID_PATTERN = Pattern.compile("^/api/dishes/(\\d+)$");
     private static final Pattern ORDER_STATUS_PATTERN = Pattern.compile("^/api/orders/(\\d+)/status$");
+    private static final Pattern CATEGORY_ID_PATTERN = Pattern.compile("^/api/dish-categories/(\\d+)$");
+    private static final Pattern DISH_QUOTA_PATTERN = Pattern.compile("^/api/dish-daily-quotas/(\\d+)$");
 
     private final AuthService authService;
     private final AccountService accountService;
     private final DishService dishService;
     private final OrderService orderService;
+    private final DishCategoryService categoryService;
+    private final DishDailyQuotaService quotaService;
     private final AppConfig appConfig;
 
     public ApiHandler(
@@ -36,12 +42,16 @@ public class ApiHandler implements HttpHandler {
         AccountService accountService,
         DishService dishService,
         OrderService orderService,
+        DishCategoryService categoryService,
+        DishDailyQuotaService quotaService,
         AppConfig appConfig
     ) {
         this.authService = authService;
         this.accountService = accountService;
         this.dishService = dishService;
         this.orderService = orderService;
+        this.categoryService = categoryService;
+        this.quotaService = quotaService;
         this.appConfig = appConfig;
     }
 
@@ -134,6 +144,12 @@ public class ApiHandler implements HttpHandler {
             return;
         }
 
+        if ("GET".equals(method) && "/api/customer/menu".equals(path)) {
+            authService.requireAuth(exchange);
+            HttpUtil.sendJson(exchange, 200, ApiResponse.ok(dishService.listCustomerMenu()));
+            return;
+        }
+
         if ("GET".equals(method) && "/api/dishes".equals(path)) {
             AuthUser authUser = authService.requireAuth(exchange);
             Map<String, String> queryParams = HttpUtil.queryParams(exchange);
@@ -153,7 +169,8 @@ public class ApiHandler implements HttpHandler {
                 asInteger(body.get("priceCents")),
                 asString(body.get("description")),
                 asBoolean(body.get("isAvailable")),
-                asIntegerNullable(body.get("maxQuantityPerOrder"))
+                asIntegerNullable(body.get("maxQuantityPerOrder")),
+                asLongNullable(body.get("categoryId"))
             );
             HttpUtil.sendJson(exchange, 200, ApiResponse.ok(Map.of("id", dishId)));
             return;
@@ -171,7 +188,8 @@ public class ApiHandler implements HttpHandler {
                 asInteger(body.get("priceCents")),
                 asString(body.get("description")),
                 asBoolean(body.get("isAvailable")),
-                asIntegerNullable(body.get("maxQuantityPerOrder"))
+                asIntegerNullable(body.get("maxQuantityPerOrder")),
+                asLongNullable(body.get("categoryId"))
             );
             HttpUtil.sendJson(exchange, 200, ApiResponse.ok(Map.of("updated", true)));
             return;
@@ -183,6 +201,76 @@ public class ApiHandler implements HttpHandler {
             long dishId = Long.parseLong(dishMatcher.group(1));
             dishService.deleteDish(dishId);
             HttpUtil.sendJson(exchange, 200, ApiResponse.ok(Map.of("deleted", true)));
+            return;
+        }
+
+        if ("GET".equals(method) && "/api/dish-categories".equals(path)) {
+            AuthUser authUser = authService.requireAuth(exchange);
+            String isActive = HttpUtil.queryParams(exchange).getOrDefault("isActive", "");
+            HttpUtil.sendJson(exchange, 200, ApiResponse.ok(categoryService.listCategories(authUser, isActive)));
+            return;
+        }
+
+        if ("POST".equals(method) && "/api/dish-categories".equals(path)) {
+            AuthUser authUser = authService.requireAuth(exchange);
+            authService.requireRole(authUser, "MERCHANT");
+            Map<String, Object> body = JsonUtil.parseMap(exchange.getRequestBody());
+            long categoryId = categoryService.createCategory(
+                asString(body.get("code")),
+                asString(body.get("name")),
+                asIntegerNullable(body.get("sortOrder")),
+                asBoolean(body.get("isActive"))
+            );
+            HttpUtil.sendJson(exchange, 200, ApiResponse.ok(Map.of("id", categoryId)));
+            return;
+        }
+
+        Matcher categoryMatcher = CATEGORY_ID_PATTERN.matcher(path);
+        if ("PUT".equals(method) && categoryMatcher.matches()) {
+            AuthUser authUser = authService.requireAuth(exchange);
+            authService.requireRole(authUser, "MERCHANT");
+            long categoryId = Long.parseLong(categoryMatcher.group(1));
+            Map<String, Object> body = JsonUtil.parseMap(exchange.getRequestBody());
+            categoryService.updateCategory(
+                categoryId,
+                asString(body.get("code")),
+                asString(body.get("name")),
+                asIntegerNullable(body.get("sortOrder")),
+                asBoolean(body.get("isActive"))
+            );
+            HttpUtil.sendJson(exchange, 200, ApiResponse.ok(Map.of("updated", true)));
+            return;
+        }
+
+        if ("DELETE".equals(method) && categoryMatcher.matches()) {
+            AuthUser authUser = authService.requireAuth(exchange);
+            authService.requireRole(authUser, "MERCHANT");
+            long categoryId = Long.parseLong(categoryMatcher.group(1));
+            categoryService.deleteCategory(categoryId);
+            HttpUtil.sendJson(exchange, 200, ApiResponse.ok(Map.of("deleted", true)));
+            return;
+        }
+
+        if ("GET".equals(method) && "/api/dish-daily-quotas".equals(path)) {
+            AuthUser authUser = authService.requireAuth(exchange);
+            authService.requireRole(authUser, "MERCHANT");
+            String date = HttpUtil.queryParams(exchange).getOrDefault("date", "today");
+            HttpUtil.sendJson(exchange, 200, ApiResponse.ok(quotaService.listDailyQuotas(date)));
+            return;
+        }
+
+        Matcher quotaMatcher = DISH_QUOTA_PATTERN.matcher(path);
+        if ("PUT".equals(method) && quotaMatcher.matches()) {
+            AuthUser authUser = authService.requireAuth(exchange);
+            authService.requireRole(authUser, "MERCHANT");
+            long dishId = Long.parseLong(quotaMatcher.group(1));
+            Map<String, Object> body = JsonUtil.parseMap(exchange.getRequestBody());
+            quotaService.setDailyQuota(
+                dishId,
+                asString(body.get("date")),
+                asIntegerNullable(body.get("availableQuantity"))
+            );
+            HttpUtil.sendJson(exchange, 200, ApiResponse.ok(Map.of("updated", true)));
             return;
         }
 
@@ -249,6 +337,17 @@ public class ApiHandler implements HttpHandler {
             return null;
         }
         return asInteger(value);
+    }
+
+    private Long asLongNullable(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number) {
+            Number number = (Number) value;
+            return number.longValue();
+        }
+        throw ApiException.badRequest("字段类型错误，期望长整数");
     }
 
     private Boolean asBoolean(Object value) {

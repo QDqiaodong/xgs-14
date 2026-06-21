@@ -16,14 +16,30 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT ck_users_role CHECK (role IN ('CUSTOMER', 'MERCHANT'))
 ) ENGINE = InnoDB;
 
+CREATE TABLE IF NOT EXISTS dish_categories (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  code VARCHAR(64) NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  CONSTRAINT uk_dish_categories_code UNIQUE (code),
+  CONSTRAINT ck_dish_categories_sort CHECK (sort_order >= 0)
+) ENGINE = InnoDB;
+
 CREATE TABLE IF NOT EXISTS dishes (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   name VARCHAR(128) NOT NULL,
   price_cents INT NOT NULL,
   description VARCHAR(512) DEFAULT '',
   is_available TINYINT(1) NOT NULL DEFAULT 1,
+  max_quantity_per_order INT NOT NULL DEFAULT 10,
+  category_id BIGINT NULL DEFAULT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
+  KEY idx_dishes_category_id (category_id),
+  CONSTRAINT fk_dishes_category FOREIGN KEY (category_id) REFERENCES dish_categories(id),
   CONSTRAINT ck_dishes_price CHECK (price_cents > 0)
 ) ENGINE = InnoDB;
 
@@ -53,6 +69,21 @@ CREATE TABLE IF NOT EXISTS order_items (
   CONSTRAINT fk_order_items_dish FOREIGN KEY (dish_id) REFERENCES dishes(id),
   CONSTRAINT ck_order_items_price CHECK (price_cents_snapshot > 0),
   CONSTRAINT ck_order_items_qty CHECK (quantity > 0)
+) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS dish_daily_quotas (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  dish_id BIGINT NOT NULL,
+  sale_date DATE NOT NULL,
+  available_quantity INT NOT NULL,
+  sold_quantity INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  KEY idx_dish_daily_quotas_dish_date (dish_id, sale_date),
+  CONSTRAINT fk_dish_daily_quotas_dish FOREIGN KEY (dish_id) REFERENCES dishes(id),
+  CONSTRAINT uk_dish_daily_quotas_dish_date UNIQUE (dish_id, sale_date),
+  CONSTRAINT ck_ddq_available CHECK (available_quantity >= 0),
+  CONSTRAINT ck_ddq_sold CHECK (sold_quantity >= 0)
 ) ENGINE = InnoDB;
 
 CREATE TABLE IF NOT EXISTS sessions (

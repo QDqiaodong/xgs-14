@@ -10,6 +10,7 @@ import com.chuanzi.app.repository.DishRepository;
 import com.chuanzi.app.repository.OrderRepository;
 import com.chuanzi.app.util.ValidationUtil;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -81,7 +82,7 @@ public class OrderService {
             ));
         }
 
-        long orderId = orderRepository.createOrderWithItems(authUser.id(), createItems, total);
+        long orderId = orderRepository.createOrderWithItems(authUser.id(), createItems, total, LocalDate.now());
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("orderId", orderId);
         result.put("totalCents", total);
@@ -135,7 +136,12 @@ public class OrderService {
             throw ApiException.forbidden("无权限操作订单");
         }
 
-        boolean updated = orderRepository.updateOrderStatus(orderId, targetStatus);
+        boolean updated;
+        if ("CANCELLED".equals(targetStatus)) {
+            updated = orderRepository.cancelOrderAndRestoreQuota(orderId);
+        } else {
+            updated = orderRepository.updateOrderStatus(orderId, targetStatus);
+        }
         if (!updated) {
             throw ApiException.notFound("订单不存在");
         }

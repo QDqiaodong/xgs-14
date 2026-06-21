@@ -4,10 +4,24 @@ set -euo pipefail
 ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT_DIR"
 
-APP_HOST_PORT=${APP_HOST_PORT:-18084}
+find_port() {
+  local port="$1"
+  while lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; do
+    port=$((port + 1))
+  done
+  printf '%s\n' "$port"
+}
 
-docker compose down -v >/dev/null 2>&1 || true
-docker compose up -d --build
+APP_HOST_PORT=$(find_port "${APP_HOST_PORT:-18144}")
+MYSQL_HOST_PORT=$(find_port "${MYSQL_HOST_PORT:-33144}")
+
+cat > .env.runtime <<EOF
+APP_HOST_PORT=${APP_HOST_PORT}
+MYSQL_HOST_PORT=${MYSQL_HOST_PORT}
+EOF
+
+docker compose --env-file .env.runtime down -v >/dev/null 2>&1 || true
+docker compose --env-file .env.runtime up -d --build
 
 for i in {1..60}; do
   if curl -fsS "http://127.0.0.1:${APP_HOST_PORT}/api/health" >/dev/null 2>&1; then

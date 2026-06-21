@@ -1,6 +1,7 @@
 package com.chuanzi.app.repository;
 
 import com.chuanzi.app.db.Database;
+import com.chuanzi.app.infra.ApiException;
 import com.chuanzi.app.model.OrderCreateItem;
 import com.chuanzi.app.model.OrderItemView;
 import com.chuanzi.app.model.OrderStatusInfo;
@@ -11,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,12 +23,14 @@ import java.util.Optional;
 
 public class OrderRepository {
     private final Database database;
+    private final DishDailyQuotaRepository quotaRepository;
 
-    public OrderRepository(Database database) {
+    public OrderRepository(Database database, DishDailyQuotaRepository quotaRepository) {
         this.database = database;
+        this.quotaRepository = quotaRepository;
     }
 
-    public long createOrderWithItems(long userId, List<OrderCreateItem> items, int totalCents) {
+    public long createOrderWithItems(long userId, List<OrderCreateItem> items, int totalCents, LocalDate saleDate) {
         String orderSql = "INSERT INTO orders(user_id, total_cents, status, created_at, updated_at) VALUES (?, ?, 'NEW', ?, ?)";
         String itemSql = "INSERT INTO order_items(order_id, dish_id, dish_name_snapshot, price_cents_snapshot, quantity) VALUES (?, ?, ?, ?, ?)";
         LocalDateTime now = LocalDateTime.now();
@@ -61,6 +65,13 @@ public class OrderRepository {
                     itemPs.executeBatch();
                 }
 
+                for (OrderCreateItem item : items) {
+                    boolean deducted = quotaRepository.deductQuantity(conn, item.dishId(), saleDate, item.quantity());
+                    if (!deducted) {
+                        throw ApiException.conflict("菜品「" + item.dishNameSnapshot() + "」当日可售份数不足");
+                    }
+                }
+
                 conn.commit();
                 return orderId;
             } catch (Exception e) {
@@ -71,6 +82,51 @@ public class OrderRepository {
             }
         } catch (SQLException e) {
             throw new RuntimeException("创建订单失败", e);
+        }
+    }
+
+    public boolean cancelOrderAndRestoreQuota(long orderId) {
+        try (Connection conn = database.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                LocalDate orderDate;
+                try (PreparedStatement ps = conn.prepareStatement("SELECT created_at FROM orders WHERE id = ?")) {
+                    ps.setLong(1, orderId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) {
+                            conn.rollback();
+                            return false;
+                        }
+                        orderDate = rs.getTimestamp("created_at").toLocalDateTime().toLocalDate();
+                    }
+                }
+
+                boolean updated;
+                try (PreparedStatement ps = conn.prepareStatement("UPDATE orders SET status = 'CANCELLED', updated_at = ? WHERE id = ? AND status = 'NEW'")) {
+                    ps.setObject(1, LocalDateTime.now());
+                    ps.setLong(2, orderId);
+                    updated = ps.executeUpdate() > 0;
+                }
+                if (!updated) {
+                    conn.rollback();
+                    return false;
+                }
+
+                List<OrderItemView> items = findItems(conn, orderId);
+                for (OrderItemView item : items) {
+                    quotaRepository.restoreQuantity(conn, item.dishId(), orderDate, item.quantity());
+                }
+
+                conn.commit();
+                return true;
+            } catch (Exception e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("取消订单失败", e);
         }
     }
 
@@ -235,6 +291,27 @@ public class OrderRepository {
         }
         dto.put("items", itemDtos);
         return dto;
+    }
+
+    private List<OrderItemView> findItems(Connection conn, long orderId) throws SQLException {
+        String sql = "SELECT id, order_id, dish_id, dish_name_snapshot, price_cents_snapshot, quantity FROM order_items WHERE order_id = ? ORDER BY id ASC";
+        List<OrderItemView> items = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    items.add(new OrderItemView(
+                        rs.getLong("id"),
+                        rs.getLong("order_id"),
+                        rs.getLong("dish_id"),
+                        rs.getString("dish_name_snapshot"),
+                        rs.getInt("price_cents_snapshot"),
+                        rs.getInt("quantity")
+                    ));
+                }
+            }
+        }
+        return items;
     }
 
     private List<OrderView> attachItems(Connection conn, List<OrderView> orders, List<Long> orderIds) throws SQLException {
